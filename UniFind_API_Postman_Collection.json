@@ -1,0 +1,182 @@
+{
+  "info": {
+    "_postman_id": "unifind-api-collection-cse309",
+    "name": "UniFind REST API (CSE 309 Mid Project MVP)",
+    "description": "Complete Postman collection for live API invocation during CSE 309 Viva assessment covering all 5 CRUD operations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "health"]
+        },
+        "description": "Verifies that the FastAPI backend server is alive and responding."
+      }
+    },
+    {
+      "name": "2. Get Statistics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/stats",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "stats"]
+        },
+        "description": "Returns counts of total, lost, found, and returned items."
+      }
+    },
+    {
+      "name": "3. READ (List) - Get All Items",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/items",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "items"],
+          "query": [
+            { "key": "search", "value": "", "disabled": true },
+            { "key": "type", "value": "lost", "disabled": true },
+            { "key": "category", "value": "Electronics", "disabled": true },
+            { "key": "status", "value": "missing", "disabled": true }
+          ]
+        },
+        "description": "CRUD: READ (List) - Retrieves list of all lost and found item reports."
+      }
+    },
+    {
+      "name": "4. CREATE - Report New Item",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Graphing Calculator TI-84\",\n  \"description\": \"Black Texas Instruments calculator left in Room 401 during CSE midterm exam.\",\n  \"category\": \"Electronics\",\n  \"type\": \"lost\",\n  \"location\": \"Academic Building 1, Room 401\",\n  \"date\": \"2026-11-03\",\n  \"contact_email\": \"student@univ.edu\",\n  \"image_url\": \"https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?w=500\",\n  \"status\": \"missing\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/items",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "items"]
+        },
+        "description": "CRUD: CREATE - Submits a new lost or found item report."
+      }
+    },
+    {
+      "name": "5. READ (Single) - Get Item by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/items/:item_id",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "items", ":item_id"],
+          "variable": [
+            {
+              "key": "item_id",
+              "value": "REPLACE_WITH_ITEM_UUID",
+              "description": "Replace with an existing item UUID from GET /api/items"
+            }
+          ]
+        },
+        "description": "CRUD: READ (Single) - Retrieves full details of a specific item report."
+      }
+    },
+    {
+      "name": "6. UPDATE - Edit Item Report",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Graphing Calculator TI-84 Plus CE\",\n  \"location\": \"Academic Building 1, Security Desk\",\n  \"status\": \"returned\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/items/:item_id",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "items", ":item_id"],
+          "variable": [
+            {
+              "key": "item_id",
+              "value": "REPLACE_WITH_ITEM_UUID",
+              "description": "Replace with an existing item UUID"
+            }
+          ]
+        },
+        "description": "CRUD: UPDATE - Updates fields of an existing item report."
+      }
+    },
+    {
+      "name": "7. UPDATE (Status) - Quick Status Patch",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"returned\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/items/:item_id/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "items", ":item_id", "status"],
+          "variable": [
+            {
+              "key": "item_id",
+              "value": "REPLACE_WITH_ITEM_UUID",
+              "description": "Replace with an existing item UUID"
+            }
+          ]
+        },
+        "description": "CRUD: UPDATE - Quick status transition (missing -> returned / found)."
+      }
+    },
+    {
+      "name": "8. DELETE - Remove Item Report",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/items/:item_id",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "items", ":item_id"],
+          "variable": [
+            {
+              "key": "item_id",
+              "value": "REPLACE_WITH_ITEM_UUID",
+              "description": "Replace with an existing item UUID"
+            }
+          ]
+        },
+        "description": "CRUD: DELETE - Permanently removes an item report from the database."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+}
