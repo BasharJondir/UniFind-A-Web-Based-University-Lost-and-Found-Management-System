@@ -1,21 +1,52 @@
 """
 Database management for UniFind using SQLite.
-Includes automatic table creation and realistic university demo data seeding.
+Includes automatic table creation, realistic university demo data seeding,
+and full compatibility with read-only serverless cloud environments like Vercel.
 """
 
+import os
+import shutil
 import sqlite3
+import tempfile
 import uuid
 from datetime import datetime, date
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-DB_PATH = Path(__file__).resolve().parent / "unifind.db"
+
+def get_db_path() -> Path:
+    """
+    Returns a writable database path.
+    On Vercel and serverless clouds, the application code directory is read-only.
+    The only writable directory is tempfile.gettempdir() (e.g. /tmp on Linux/Vercel).
+    """
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        temp_dir = Path(tempfile.gettempdir())
+        tmp_db = temp_dir / "unifind.db"
+        local_db = Path(__file__).resolve().parent / "unifind.db"
+        if local_db.exists() and not tmp_db.exists():
+            try:
+                shutil.copyfile(local_db, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
+
+    # Local development
+    return Path(__file__).resolve().parent / "unifind.db"
 
 
 def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    db_path = get_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.OperationalError:
+        # Fallback to temp directory if local path is not writable
+        tmp_db = Path(tempfile.gettempdir()) / "unifind.db"
+        conn = sqlite3.connect(tmp_db)
+        conn.row_factory = sqlite3.Row
+        return conn
 
 
 def init_db():
