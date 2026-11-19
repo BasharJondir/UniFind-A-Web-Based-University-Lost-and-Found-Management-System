@@ -8,6 +8,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.responses import JSONResponse
 
 try:
     from backend.database import init_db
@@ -30,6 +32,9 @@ app = FastAPI(
     title="UniFind API",
     description="REST API for UniFind — University Lost and Found Management System",
     version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
@@ -45,6 +50,32 @@ app.add_middleware(
 # Register modular routers
 app.include_router(items_router)
 app.include_router(system_router)
+
+
+# Support Swagger UI and OpenAPI documentation at both /docs and /api/docs
+@app.get("/api/docs", include_in_schema=False)
+async def api_docs():
+    """Swagger UI documentation accessible under /api/docs."""
+    return get_swagger_ui_html(
+        openapi_url="/api/openapi.json",
+        title=app.title + " - Swagger UI",
+    )
+
+
+@app.get("/api/openapi.json", include_in_schema=False)
+async def api_openapi():
+    """OpenAPI schema definition accessible under /api/openapi.json."""
+    return JSONResponse(app.openapi())
+
+
+@app.get("/api/redoc", include_in_schema=False)
+async def api_redoc():
+    """ReDoc documentation accessible under /api/redoc."""
+    return get_redoc_html(
+        openapi_url="/api/openapi.json",
+        title=app.title + " - ReDoc",
+    )
+
 
 # Vercel / Single-Project Frontend Mounting
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
