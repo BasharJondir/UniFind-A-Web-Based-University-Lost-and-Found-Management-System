@@ -8,6 +8,8 @@ import {
   updateItemStatus,
   deleteItem,
 } from "./api";
+import { AuthProvider, useAuth } from "./AuthContext";
+import { AuthPage } from "./components/AuthPage";
 import { Navbar } from "./components/Navbar";
 import { StatsCards } from "./components/StatsCards";
 import { FiltersBar } from "./components/FiltersBar";
@@ -16,7 +18,15 @@ import { ItemDetailModal } from "./components/ItemDetailModal";
 import { ItemFormModal } from "./components/ItemFormModal";
 import { Toast, ToastMessage } from "./components/Toast";
 
-export default function App() {
+interface UniFindContentProps {
+  toasts: ToastMessage[];
+  addToast: (type: "success" | "error" | "info", message: string) => void;
+  removeToast: (id: string) => void;
+}
+
+function UniFindContent({ toasts, addToast, removeToast }: UniFindContentProps) {
+  const { user } = useAuth();
+
   // Navigation tab: 'dashboard' | 'all' | 'my-reports'
   const [activeTab, setActiveTab] = useState<"dashboard" | "all" | "my-reports">("dashboard");
 
@@ -40,18 +50,6 @@ export default function App() {
   const [detailItem, setDetailItem] = useState<Item | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
-  // Toast notifications state
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  const addToast = (type: "success" | "error" | "info", message: string) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, message }]);
-  };
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
   // Load items and statistics from FastAPI backend
   const loadData = useCallback(async () => {
     try {
@@ -68,11 +66,11 @@ export default function App() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to connect to backend.";
       setError(msg);
-      addToast("error", `Backend error: ${msg}`);
+      addToast("error", `Backend communication: ${msg}`);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, addToast]);
 
   useEffect(() => {
     loadData();
@@ -85,17 +83,26 @@ export default function App() {
 
   // 1. Create or Update handler
   const handleFormSubmit = async (formData: ItemInput) => {
-    if (editingItem) {
-      // UPDATE: PUT /api/items/{id}
-      await updateItem(editingItem.id, formData);
-      addToast("success", `Updated report: "${formData.title}"`);
-      setEditingItem(null);
-    } else {
-      // CREATE: POST /api/items
-      const created = await createItem(formData);
-      addToast("success", `Created new report: "${created.title}"`);
+    try {
+      if (editingItem) {
+        // UPDATE: PUT /api/items/{id}
+        await updateItem(editingItem.id, formData);
+        addToast("success", `Updated report: "${formData.title}"`);
+        setEditingItem(null);
+      } else {
+        // CREATE: POST /api/items
+        const dataToSubmit = {
+          ...formData,
+          user_id: user ? user.id : undefined,
+          contact_email: formData.contact_email || user?.email || "",
+        };
+        const created = await createItem(dataToSubmit);
+        addToast("success", `Created new report: "${created.title}"`);
+      }
+      loadData();
+    } catch (err: any) {
+      addToast("error", err?.message || "Operation failed");
     }
-    loadData();
   };
 
   // 2. Quick Status Update handler (PATCH /api/items/{id}/status)
@@ -122,15 +129,19 @@ export default function App() {
     }
   };
 
-  // Filter items for "My Reports" tab (simulated user management view)
+  // Filter items for "My Reports" tab
   const displayedItems =
     activeTab === "my-reports"
-      ? items.filter((item) => item.contact_email.includes("bashar") || item.contact_email.includes("student"))
+      ? items.filter(
+          (item) =>
+            (user && item.user_id && item.user_id === user.id) ||
+            (user && item.contact_email.toLowerCase() === user.email.toLowerCase())
+        )
       : items;
 
   return (
     <div className="app-layout">
-      {/* Top Navigation */}
+      {/* Top Navigation Bar with Logged In User & Logout */}
       <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -138,6 +149,8 @@ export default function App() {
           setEditingItem(null);
           setFormModalOpen(true);
         }}
+        onOpenLoginModal={() => {}}
+        onOpenSignupModal={() => {}}
       />
 
       <main className="main-content">
@@ -147,8 +160,8 @@ export default function App() {
             <div className="hero-content">
               <h1 className="hero-heading">Reuniting Lost Belongings Across Campus</h1>
               <p className="hero-lead">
-                UniFind helps university students report lost property, catalog found belongings,
-                and connect quickly with rightful owners.
+                Welcome, <strong>{user?.full_name}</strong>! UniFind helps you report lost property,
+                catalog found belongings, and connect quickly with rightful owners.
               </p>
               <div className="hero-cta-group">
                 <button
@@ -156,6 +169,13 @@ export default function App() {
                   onClick={() => setActiveTab("all")}
                 >
                   Browse Campus Catalog ({stats.total} Items)
+                </button>
+                <button
+                  className="btn-secondary-light"
+                  style={{ background: "rgba(255, 255, 255, 0.25)" }}
+                  onClick={() => setActiveTab("my-reports")}
+                >
+                  View My Submissions
                 </button>
               </div>
             </div>
@@ -177,9 +197,9 @@ export default function App() {
         {activeTab === "my-reports" && (
           <div className="page-header">
             <div>
-              <h1 className="page-title">Manage Item Reports</h1>
+              <h1 className="page-title">My Lost &amp; Found Reports</h1>
               <p className="page-subtitle">
-                Update status, edit details, or remove reports as items are returned to their owners.
+                Manage, update, and resolve the reports you have submitted across campus.
               </p>
             </div>
           </div>
@@ -204,7 +224,7 @@ export default function App() {
             <div className="error-alert-content">
               <strong>⚠️ Backend Communication Error:</strong> {error}
               <p className="error-hint">
-                Ensure the FastAPI backend server is running with: <code>uvicorn main:app --reload</code> in the <code>backend/</code> folder.
+                Ensure the FastAPI backend server is running in the <code>backend/</code> folder.
               </p>
             </div>
             <button className="btn-secondary" onClick={loadData}>
@@ -240,7 +260,9 @@ export default function App() {
                 <div className="empty-icon">🔍</div>
                 <h3>No items found</h3>
                 <p>
-                  No items match your active filters. Try clearing filters or create a new report.
+                  {activeTab === "my-reports"
+                    ? "You haven't submitted any reports yet."
+                    : "No items match your active filters. Try clearing filters or create a new report."}
                 </p>
                 <div className="empty-actions">
                   <button
@@ -249,7 +271,7 @@ export default function App() {
                       setFilters({ search: "", type: "all", category: "all", status: "all" })
                     }
                   >
-                    Clear All Filters
+                    Reset Filters
                   </button>
                   <button
                     className="btn-primary"
@@ -258,7 +280,7 @@ export default function App() {
                       setFormModalOpen(true);
                     }}
                   >
-                    Report Item
+                    Submit a Report
                   </button>
                 </div>
               </div>
@@ -268,9 +290,9 @@ export default function App() {
                   <ItemCard
                     key={item.id}
                     item={item}
-                    onView={(itm) => setDetailItem(itm)}
-                    onEdit={(itm) => {
-                      setEditingItem(itm);
+                    onView={(i: Item) => setDetailItem(i)}
+                    onEdit={(i: Item) => {
+                      setEditingItem(i);
                       setFormModalOpen(true);
                     }}
                     onDelete={(id, title) => setDeleteConfirm({ id, title })}
@@ -283,7 +305,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Create / Edit Form Modal */}
+      {/* Item Form Modal (Create / Edit) */}
       <ItemFormModal
         isOpen={formModalOpen}
         onClose={() => {
@@ -294,42 +316,142 @@ export default function App() {
         editItem={editingItem}
       />
 
-      {/* Read Single Detail Modal */}
+      {/* Item Detail View Modal */}
       <ItemDetailModal
         item={detailItem}
         onClose={() => setDetailItem(null)}
-        onEdit={(itm) => {
-          setEditingItem(itm);
+        onEdit={(i) => {
+          setDetailItem(null);
+          setEditingItem(i);
           setFormModalOpen(true);
         }}
-        onDelete={(id, title) => setDeleteConfirm({ id, title })}
-        onQuickStatus={handleQuickStatus}
+        onDelete={(id, title) => {
+          setDetailItem(null);
+          setDeleteConfirm({ id, title });
+        }}
+        onQuickStatus={(id, s) => {
+          handleQuickStatus(id, s);
+          setDetailItem(null);
+        }}
       />
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Dialog */}
       {deleteConfirm && (
         <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="modal-container confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="confirm-icon">⚠️</div>
-            <h3 className="confirm-title">Delete Item Report?</h3>
-            <p className="confirm-text">
-              Are you sure you want to permanently delete <strong>&ldquo;{deleteConfirm.title}&rdquo;</strong>?
-              This action cannot be undone.
-            </p>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setDeleteConfirm(null)}>
-                Cancel
+          <div
+            className="modal-container delete-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "420px" }}
+          >
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ color: "#dc2626" }}>
+                Confirm Deletion
+              </h2>
+              <button
+                className="modal-close-btn"
+                onClick={() => setDeleteConfirm(null)}
+              >
+                ✕
               </button>
-              <button className="btn-danger" onClick={handleDeleteConfirm}>
-                Yes, Delete
-              </button>
+            </div>
+            <div style={{ padding: "1.25rem 1.5rem" }}>
+              <p style={{ color: "#475569", marginBottom: "1.5rem", lineHeight: "1.5" }}>
+                Are you sure you want to permanently delete{" "}
+                <strong>&ldquo;{deleteConfirm.title}&rdquo;</strong>? This action cannot be undone.
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "0.75rem",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setDeleteConfirm(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ background: "#dc2626", borderColor: "#dc2626" }}
+                  onClick={handleDeleteConfirm}
+                >
+                  Delete Item
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Toast Notifications */}
+      {/* Toast Notification Stack */}
       <Toast toasts={toasts} onDismiss={removeToast} />
     </div>
+  );
+}
+
+function UniFindGate() {
+  const { user, loading } = useAuth();
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = useCallback((type: "success" | "error" | "info", message: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, type, message }]);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // 1. Session Loading State
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#0f172a",
+          color: "#94a3b8",
+        }}
+      >
+        <div className="spinner"></div>
+        <p style={{ marginTop: "1rem", fontWeight: 500 }}>
+          Connecting to UniFind Portal...
+        </p>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated: Show standalone Login / Signup Page
+  if (!user) {
+    return (
+      <>
+        <AuthPage onSuccess={(msg) => addToast("success", msg)} />
+        <Toast toasts={toasts} onDismiss={removeToast} />
+      </>
+    );
+  }
+
+  // 3. Authenticated: Show full UniFind Dashboard & Management Portal
+  return (
+    <UniFindContent
+      toasts={toasts}
+      addToast={addToast}
+      removeToast={removeToast}
+    />
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <UniFindGate />
+    </AuthProvider>
   );
 }

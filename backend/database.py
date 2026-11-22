@@ -51,9 +51,11 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db():
-    """Create items table if it doesn't exist and seed sample data if empty."""
+    """Create tables (items, users, user_sessions) and seed initial demo data."""
     with get_connection() as conn:
         cursor = conn.cursor()
+
+        # 1. Items Table
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS items (
@@ -67,19 +69,104 @@ def init_db():
                 contact_email TEXT NOT NULL,
                 image_url TEXT,
                 status TEXT NOT NULL, -- 'missing', 'found', 'returned'
+                user_id TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
             """
         )
+
+        # Ensure user_id column exists on older items table
+        cursor.execute("PRAGMA table_info(items)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if "user_id" not in columns:
+            cursor.execute("ALTER TABLE items ADD COLUMN user_id TEXT")
+
+        # 2. Users Table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                full_name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
+                is_banned INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
+            """
+        )
+
+        # 3. User Sessions / Refresh Tokens Table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                token_hash TEXT UNIQUE NOT NULL,
+                expires_at TEXT NOT NULL,
+                is_revoked INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            """
+        )
         conn.commit()
 
-        # Check if table has data; if not, seed realistic university records
+        # Check if users table has data; if not, seed default admin & student
+        cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = cursor.fetchone()[0]
+        if user_count == 0:
+            seed_demo_users(cursor)
+            conn.commit()
+
+        # Check if items table has data; if not, seed realistic university records
         cursor.execute("SELECT COUNT(*) FROM items")
         count = cursor.fetchone()[0]
         if count == 0:
             seed_demo_data(cursor)
             conn.commit()
+
+
+def seed_demo_users(cursor: sqlite3.Cursor):
+    """Seed initial demo admin and student accounts."""
+    try:
+        from backend.auth import hash_password
+    except ImportError:
+        from auth import hash_password
+
+    now = datetime.now().isoformat()
+    # Password for both: Pass123!
+    default_pw_hash = hash_password("Pass123!")
+
+    demo_users = [
+        (
+            str(uuid.uuid4()),
+            "admin@univ.edu",
+            "University Proctor",
+            default_pw_hash,
+            "admin",
+            0,
+            now,
+        ),
+        (
+            str(uuid.uuid4()),
+            "student@univ.edu",
+            "Bashar Jondir",
+            default_pw_hash,
+            "user",
+            0,
+            now,
+        ),
+    ]
+
+    cursor.executemany(
+        """
+        INSERT INTO users (id, email, full_name, password_hash, role, is_banned, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        demo_users,
+    )
 
 
 def seed_demo_data(cursor: sqlite3.Cursor):
@@ -96,6 +183,7 @@ def seed_demo_data(cursor: sqlite3.Cursor):
             "student1@univ.edu",
             "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=500&auto=format&fit=crop&q=60",
             "missing",
+            None,
             datetime.now().isoformat(),
             datetime.now().isoformat(),
         ),
@@ -110,6 +198,7 @@ def seed_demo_data(cursor: sqlite3.Cursor):
             "cafeteria-staff@univ.edu",
             "https://images.unsplash.com/photo-1578874691223-a49267429148?w=500&auto=format&fit=crop&q=60",
             "found",
+            None,
             datetime.now().isoformat(),
             datetime.now().isoformat(),
         ),
@@ -124,6 +213,7 @@ def seed_demo_data(cursor: sqlite3.Cursor):
             "bashar@univ.edu",
             "https://images.unsplash.com/photo-1627123424574-724758594e93?w=500&auto=format&fit=crop&q=60",
             "missing",
+            None,
             datetime.now().isoformat(),
             datetime.now().isoformat(),
         ),
@@ -138,6 +228,7 @@ def seed_demo_data(cursor: sqlite3.Cursor):
             "lab-assistant@univ.edu",
             "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=500&auto=format&fit=crop&q=60",
             "found",
+            None,
             datetime.now().isoformat(),
             datetime.now().isoformat(),
         ),
@@ -152,6 +243,7 @@ def seed_demo_data(cursor: sqlite3.Cursor):
             "guard-desk@univ.edu",
             "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=60",
             "returned",
+            None,
             datetime.now().isoformat(),
             datetime.now().isoformat(),
         ),
@@ -166,6 +258,7 @@ def seed_demo_data(cursor: sqlite3.Cursor):
             "tanvir@univ.edu",
             "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&auto=format&fit=crop&q=60",
             "returned",
+            None,
             datetime.now().isoformat(),
             datetime.now().isoformat(),
         ),
@@ -175,8 +268,8 @@ def seed_demo_data(cursor: sqlite3.Cursor):
         """
         INSERT INTO items (
             id, title, description, category, type, location,
-            date, contact_email, image_url, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            date, contact_email, image_url, status, user_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         sample_items,
     )

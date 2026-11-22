@@ -1,11 +1,63 @@
 """
 Pydantic data models for UniFind Lost and Found Management System.
+Includes User Authentication, Sessions, and Item Models.
 """
 
 from datetime import datetime, date
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, EmailStr
 
+
+# ==========================================
+# User & Authentication Models
+# ==========================================
+
+class UserBase(BaseModel):
+    email: EmailStr = Field(..., description="University student or admin email")
+    full_name: str = Field(..., min_length=2, max_length=100, description="Full name of student")
+
+
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=6, description="Password (min 6 characters)")
+    role: Optional[Literal["user", "admin"]] = Field(default="user", description="Account role")
+
+
+class UserLogin(BaseModel):
+    email: EmailStr = Field(..., description="Registered email")
+    password: str = Field(..., description="Account password")
+
+
+class UserResponse(UserBase):
+    id: str
+    role: Literal["user", "admin"] = "user"
+    is_banned: bool = False
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+class UserSession(BaseModel):
+    id: str
+    user_id: str
+    token_hash: str
+    expires_at: str
+    is_revoked: bool = False
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+# ==========================================
+# Lost & Found Item Models
+# ==========================================
 
 class ItemBase(BaseModel):
     title: str = Field(..., min_length=2, max_length=150, description="Title of the lost/found item")
@@ -17,6 +69,7 @@ class ItemBase(BaseModel):
     contact_email: str = Field(..., description="Contact email of the student")
     image_url: Optional[str] = Field(default="", description="Optional image URL or photo")
     status: Literal["missing", "found", "returned"] = Field(default="missing", description="Current status of the item")
+    user_id: Optional[str] = Field(default=None, description="ID of the user who reported this item")
 
 
 class ItemCreate(ItemBase):
