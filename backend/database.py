@@ -17,9 +17,13 @@ from typing import Optional, List, Dict, Any
 def get_db_path() -> Path:
     """
     Returns a writable database path.
+    Supports UNIFIND_DB_PATH override for isolated testing.
     On Vercel and serverless clouds, the application code directory is read-only.
     The only writable directory is tempfile.gettempdir() (e.g. /tmp on Linux/Vercel).
     """
+    if os.environ.get("UNIFIND_DB_PATH"):
+        return Path(os.environ["UNIFIND_DB_PATH"])
+
     if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
         temp_dir = Path(tempfile.gettempdir())
         tmp_db = temp_dir / "unifind.db"
