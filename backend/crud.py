@@ -83,6 +83,69 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
         return d
 
 
+def get_all_users(
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    is_banned: Optional[bool] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> List[Dict[str, Any]]:
+    """Retrieve users with optional filtering for Admin inspection."""
+    query = "SELECT * FROM users WHERE 1=1"
+    params = []
+
+    if role and role.lower() != "all":
+        query += " AND LOWER(role) = LOWER(?)"
+        params.append(role)
+
+    if is_banned is not None:
+        query += " AND is_banned = ?"
+        params.append(1 if is_banned else 0)
+
+    if search:
+        query += " AND (LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?)"
+        wildcard = f"%{search.lower()}%"
+        params.extend([wildcard, wildcard])
+
+    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["is_banned"] = bool(d.get("is_banned", 0))
+            result.append(d)
+        return result
+
+
+def update_user_ban(user_id: str, is_banned: bool, ban_reason: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Update user's ban status and reason."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET is_banned = ?, ban_reason = ? WHERE id = ?",
+            (1 if is_banned else 0, ban_reason if is_banned else None, user_id),
+        )
+        conn.commit()
+    return get_user_by_id(user_id)
+
+
+def update_user_role(user_id: str, new_role: str) -> Optional[Dict[str, Any]]:
+    """Update a user's role (user <-> admin)."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET role = ? WHERE id = ?",
+            (new_role.lower(), user_id),
+        )
+        conn.commit()
+    return get_user_by_id(user_id)
+
+
 def create_user_session(
     user_id: str,
     token_hash: str,
@@ -160,6 +223,8 @@ def get_all(
     item_type: Optional[str] = None,
     category: Optional[str] = None,
     status: Optional[str] = None,
+    user_id: Optional[str] = None,
+    user_email: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Retrieve all items matching optional search, category, type, and status filters."""
     query = "SELECT * FROM items WHERE 1=1"
@@ -176,6 +241,17 @@ def get_all(
     if status and status.lower() != "all":
         query += " AND LOWER(status) = LOWER(?)"
         params.append(status)
+
+    if user_id or user_email:
+        if user_id and user_email:
+            query += " AND (user_id = ? OR LOWER(contact_email) = LOWER(?))"
+            params.extend([user_id, user_email])
+        elif user_id:
+            query += " AND user_id = ?"
+            params.append(user_id)
+        else:
+            query += " AND LOWER(contact_email) = LOWER(?)"
+            params.append(user_email)
 
     if search:
         query += " AND (title LIKE ? OR description LIKE ? OR location LIKE ?)"
@@ -305,6 +381,48 @@ def get_stats() -> Dict[str, int]:
             "lost": lost,
             "found": found,
             "returned": returned,
+        }
+
+
+def get_admin_stats() -> Dict[str, int]:
+    """Calculate comprehensive administrator moderation metrics."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        # Items metrics
+        cursor.execute("SELECT COUNT(*) FROM items")
+        total_items = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM items WHERE LOWER(type) = 'lost'")
+        lost_items = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM items WHERE LOWER(type) = 'found'")
+        found_items = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM items WHERE LOWER(status) = 'returned'")
+        returned_items = cursor.fetchone()[0]
+
+        # Users metrics
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM users WHERE LOWER(role) = 'admin'")
+        admin_users = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM users WHERE LOWER(role) != 'admin'")
+        student_users = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM users WHERE is_banned = 1")
+        banned_users = cursor.fetchone()[0]
+
+        return {
+            "total_items": total_items,
+            "lost_items": lost_items,
+            "found_items": found_items,
+            "returned_items": returned_items,
+            "total_users": total_users,
+            "admin_users": admin_users,
+            "student_users": student_users,
+            "banned_users": banned_users,
         }
 
 

@@ -16,6 +16,7 @@ import { FiltersBar } from "./components/FiltersBar";
 import { ItemCard } from "./components/ItemCard";
 import { ItemDetailModal } from "./components/ItemDetailModal";
 import { ItemFormModal } from "./components/ItemFormModal";
+import { AdminDashboard } from "./components/AdminDashboard";
 import { Toast, ToastMessage } from "./components/Toast";
 
 interface UniFindContentProps {
@@ -27,8 +28,8 @@ interface UniFindContentProps {
 function UniFindContent({ toasts, addToast, removeToast }: UniFindContentProps) {
   const { user } = useAuth();
 
-  // Navigation tab: 'dashboard' | 'all' | 'my-reports'
-  const [activeTab, setActiveTab] = useState<"dashboard" | "all" | "my-reports">("dashboard");
+  // Navigation tab: 'dashboard' | 'all' | 'my-reports' | 'admin'
+  const [activeTab, setActiveTab] = useState<"dashboard" | "all" | "my-reports" | "admin">("dashboard");
 
   // Items and Statistics state
   const [items, setItems] = useState<Item[]>([]);
@@ -153,7 +154,16 @@ function UniFindContent({ toasts, addToast, removeToast }: UniFindContentProps) 
         onOpenSignupModal={() => {}}
       />
 
-      <main className="main-content">
+      {activeTab === "admin" && user?.role === "admin" ? (
+        <AdminDashboard
+          onBackToFeed={() => {
+            setActiveTab("dashboard");
+            loadData();
+          }}
+          onShowToast={(msg, type) => addToast(type === "error" ? "error" : "success", msg)}
+        />
+      ) : (
+        <main className="main-content">
         {/* Hero Section */}
         {activeTab === "dashboard" && (
           <section className="hero-banner">
@@ -304,6 +314,7 @@ function UniFindContent({ toasts, addToast, removeToast }: UniFindContentProps) 
           </section>
         )}
       </main>
+      )}
 
       {/* Item Form Modal (Create / Edit) */}
       <ItemFormModal

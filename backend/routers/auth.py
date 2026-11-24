@@ -101,6 +101,27 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     return user
 
 
+def get_optional_current_user(authorization: Optional[str] = Header(None)) -> Optional[dict]:
+    """Extract current user if Authorization header is provided, otherwise return None."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    token = authorization.split(" ")[1]
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+
+    user = crud.get_user_by_id(user_id)
+    if not user or user.get("is_banned"):
+        return None
+
+    return user
+
+
 @router.post(
     "/api/auth/signup",
     response_model=UserResponse,

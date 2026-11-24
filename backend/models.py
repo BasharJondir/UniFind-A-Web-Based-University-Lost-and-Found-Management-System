@@ -31,10 +31,20 @@ class UserResponse(UserBase):
     id: str
     role: Literal["user", "admin"] = "user"
     is_banned: bool = False
+    ban_reason: Optional[str] = None
     created_at: str
 
     class Config:
         from_attributes = True
+
+
+class BanUserRequest(BaseModel):
+    is_banned: bool = Field(..., description="True to ban user, False to unban")
+    reason: Optional[str] = Field(default=None, description="Explanation or policy violation reason for the ban")
+
+
+class ChangeRoleRequest(BaseModel):
+    role: Literal["user", "admin"] = Field(..., description="Role to assign ('user' or 'admin')")
 
 
 class TokenResponse(BaseModel):
@@ -73,7 +83,7 @@ class ItemBase(BaseModel):
 
 
 class ItemCreate(ItemBase):
-    pass
+    contact_email: Optional[str] = Field(default=None, description="Optional contact email; defaults to account email")
 
 
 class ItemUpdate(BaseModel):
@@ -106,3 +116,14 @@ class StatsResponse(BaseModel):
     lost: int
     found: int
     returned: int
+
+
+class AdminStatsResponse(BaseModel):
+    total_items: int
+    lost_items: int
+    found_items: int
+    returned_items: int
+    total_users: int
+    admin_users: int
+    student_users: int
+    banned_users: int

@@ -5,6 +5,8 @@ import {
   Stats,
   FilterState,
   User,
+  UserRole,
+  AdminStats,
   AuthResponse,
   LoginInput,
   SignupInput,
@@ -175,4 +177,44 @@ export async function updateItemStatus(id: string, status: ItemStatus): Promise<
 
 export async function deleteItem(id: string): Promise<{ message: string; id: string }> {
   return request<{ message: string; id: string }>("DELETE", `/api/items/${id}`);
+}
+
+// ==========================================
+// Admin & Moderation API Endpoints
+// ==========================================
+
+export async function fetchAdminStats(): Promise<AdminStats> {
+  return request<AdminStats>("GET", "/api/admin/stats");
+}
+
+export async function fetchAdminUsers(filters?: {
+  search?: string;
+  role?: string;
+  is_banned?: boolean;
+}): Promise<User[]> {
+  const params = new URLSearchParams();
+  if (filters?.search) params.append("search", filters.search);
+  if (filters?.role && filters.role !== "all") params.append("role", filters.role);
+  if (filters?.is_banned !== undefined) params.append("is_banned", String(filters.is_banned));
+
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request<User[]>("GET", `/api/admin/users${query}`);
+}
+
+export async function banUserApi(
+  userId: string,
+  isBanned: boolean,
+  reason?: string
+): Promise<User> {
+  return request<User>("PATCH", `/api/admin/users/${userId}/ban`, {
+    is_banned: isBanned,
+    reason: reason || undefined,
+  });
+}
+
+export async function changeUserRoleApi(
+  userId: string,
+  role: UserRole
+): Promise<User> {
+  return request<User>("PATCH", `/api/admin/users/${userId}/role`, { role });
 }
