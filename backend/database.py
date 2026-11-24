@@ -170,6 +170,11 @@ def get_connection():
 
 def init_db():
     """Create tables (items, users, user_sessions) and seed initial demo data."""
+    # If using Supabase / PostgreSQL in cloud, tables and seeds are managed persistently
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DATABASE_URL")
+    if db_url and db_url.startswith("postgres"):
+        return
+
     with get_connection() as conn:
         cursor = conn.cursor()
 

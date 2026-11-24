@@ -66,7 +66,7 @@ VALUES (
     '232feb6d-59ef-4669-bee7-fa6a34f5b99b',
     'admin@univ.edu',
     'University Proctor',
-    '$2b$12$NqL7t0f51WbvL8E7XnZ23eQY4oH2bC29m5iU7xG3aR1pO2cE0b8uG',
+    '$2b$12$WF1LQoYBGQ84K./a/Y9seu2Rtn8SOZCbRFCeoMggt.GpWBBWuEsnW',
     'admin',
     FALSE,
     NOW()
@@ -78,7 +78,7 @@ VALUES (
     '891a92e1-432d-4581-9cb1-e8d9b1a2c3d4',
     'student@univ.edu',
     'Bashar Jondir',
-    '$2b$12$NqL7t0f51WbvL8E7XnZ23eQY4oH2bC29m5iU7xG3aR1pO2cE0b8uG',
+    '$2b$12$WF1LQoYBGQ84K./a/Y9seu2Rtn8SOZCbRFCeoMggt.GpWBBWuEsnW',
     'user',
     FALSE,
     NOW()

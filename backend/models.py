@@ -3,9 +3,9 @@ Pydantic data models for UniFind Lost and Found Management System.
 Includes User Authentication, Sessions, and Item Models.
 """
 
-from datetime import datetime, date
-from typing import Optional, Literal
-from pydantic import BaseModel, Field, EmailStr
+from datetime import datetime as dt_datetime, date as dt_date
+from typing import Optional, Literal, Union
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
 
 # ==========================================
@@ -32,10 +32,9 @@ class UserResponse(UserBase):
     role: Literal["user", "admin"] = "user"
     is_banned: bool = False
     ban_reason: Optional[str] = None
-    created_at: str
+    created_at: Union[str, dt_datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BanUserRequest(BaseModel):
@@ -57,12 +56,11 @@ class UserSession(BaseModel):
     id: str
     user_id: str
     token_hash: str
-    expires_at: str
+    expires_at: Union[str, dt_datetime]
     is_revoked: bool = False
-    created_at: str
+    created_at: Union[str, dt_datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==========================================
@@ -75,7 +73,7 @@ class ItemBase(BaseModel):
     category: str = Field(..., description="Category (e.g. Electronics, Cards & IDs, Books, etc.)")
     type: Literal["lost", "found"] = Field(..., description="Whether the item was lost or found")
     location: str = Field(..., min_length=2, max_length=150, description="Campus location where lost/found")
-    date: Optional[str] = Field(default_factory=lambda: date.today().isoformat(), description="Date in YYYY-MM-DD")
+    date: Optional[Union[str, dt_date]] = Field(default_factory=lambda: dt_date.today().isoformat(), description="Date in YYYY-MM-DD")
     contact_email: str = Field(..., description="Contact email of the student")
     image_url: Optional[str] = Field(default="", description="Optional image URL or photo")
     status: Literal["missing", "found", "returned"] = Field(default="missing", description="Current status of the item")
@@ -104,11 +102,10 @@ class ItemStatusUpdate(BaseModel):
 
 class ItemResponse(ItemBase):
     id: str
-    created_at: str
-    updated_at: str
+    created_at: Union[str, dt_datetime]
+    updated_at: Union[str, dt_datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class StatsResponse(BaseModel):
