@@ -53,7 +53,19 @@ export interface User {
   full_name: string;
   role: UserRole;
   is_banned: boolean;
+  ban_reason?: string;
   created_at: string;
+}
+
+export interface AdminStats {
+  total_items: number;
+  lost_items: number;
+  found_items: number;
+  returned_items: number;
+  total_users: number;
+  admin_users: number;
+  student_users: number;
+  banned_users: number;
 }
 
 export interface AuthResponse {

@@ -16,11 +16,13 @@ try:
     from backend.routers.items import router as items_router
     from backend.routers.system import router as system_router
     from backend.routers.auth import router as auth_router
+    from backend.routers.admin import router as admin_router
 except ImportError:
     from database import init_db
     from routers.items import router as items_router
     from routers.system import router as system_router
     from routers.auth import router as auth_router
+    from routers.admin import router as admin_router
 
 
 @asynccontextmanager
@@ -52,6 +54,7 @@ app.add_middleware(
 # Register modular routers
 app.include_router(auth_router)
 app.include_router(items_router)
+app.include_router(admin_router)
 app.include_router(system_router)
 
 

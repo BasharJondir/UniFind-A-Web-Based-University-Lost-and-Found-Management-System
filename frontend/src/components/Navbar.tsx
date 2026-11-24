@@ -2,8 +2,8 @@ import React from "react";
 import { useAuth } from "../AuthContext";
 
 interface NavbarProps {
-  activeTab: "dashboard" | "all" | "my-reports";
-  onTabChange: (tab: "dashboard" | "all" | "my-reports") => void;
+  activeTab: "dashboard" | "all" | "my-reports" | "admin";
+  onTabChange: (tab: "dashboard" | "all" | "my-reports" | "admin") => void;
   onOpenReportModal: () => void;
   onOpenLoginModal: () => void;
   onOpenSignupModal: () => void;
@@ -63,6 +63,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => onTabChange("my-reports")}
             >
               My Reports
+            </button>
+          )}
+          {user?.role === "admin" && (
+            <button
+              className={`nav-link-btn ${activeTab === "admin" ? "active" : ""}`}
+              onClick={() => onTabChange("admin")}
+              style={{
+                backgroundColor: activeTab === "admin" ? "#4338ca" : "rgba(99, 102, 241, 0.2)",
+                color: activeTab === "admin" ? "#ffffff" : "#c7d2fe",
+                border: "1px solid rgba(165, 180, 252, 0.4)",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
+              }}
+            >
+              Admin Portal
             </button>
           )}
         </nav>

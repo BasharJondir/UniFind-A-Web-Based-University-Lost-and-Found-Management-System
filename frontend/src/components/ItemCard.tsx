@@ -1,5 +1,6 @@
 import React from "react";
 import { Item, ItemStatus } from "../types";
+import { useAuth } from "../AuthContext";
 
 interface ItemCardProps {
   item: Item;
@@ -16,7 +17,18 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   onDelete,
   onQuickStatus,
 }) => {
+  const { user } = useAuth();
   const isLost = item.type === "lost";
+
+  // Check ownership
+  const isOwner = Boolean(
+    user &&
+      ((item.user_id && item.user_id === user.id) ||
+        (item.contact_email &&
+          user.email &&
+          item.contact_email.toLowerCase() === user.email.toLowerCase()))
+  );
+  const canManage = isOwner || user?.role === "admin";
 
   // Category fallback icon
   const getCategoryIcon = (category: string) => {
@@ -41,14 +53,34 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   return (
     <div className={`item-card ${item.status === "returned" ? "returned-card" : ""}`}>
       {/* Top Banner with Badges */}
-      <div className="item-card-top">
-        <span className={`badge-type ${isLost ? "type-lost" : "type-found"}`}>
-          {isLost ? "LOST" : "FOUND"}
-        </span>
+      <div className="item-card-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+          <span className={`badge-type ${isLost ? "type-lost" : "type-found"}`}>
+            {isLost ? "LOST" : "FOUND"}
+          </span>
 
-        <span className={`badge-status status-${item.status}`}>
-          {item.status.toUpperCase()}
-        </span>
+          <span className={`badge-status status-${item.status}`}>
+            {item.status.toUpperCase()}
+          </span>
+        </div>
+
+        {/* Ownership Badge */}
+        {isOwner && (
+          <span
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: "9999px",
+              background: "#dcfce7",
+              color: "#15803d",
+              border: "1px solid #bbf7d0",
+              letterSpacing: "0.03em",
+            }}
+          >
+            ★ MY REPORT
+          </span>
+        )}
       </div>
 
       {/* Image or Category Fallback */}
@@ -58,7 +90,6 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             src={item.image_url}
             alt={item.title}
             onError={(e) => {
-              // fallback if image fails to load
               (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
           />
@@ -109,41 +140,66 @@ export const ItemCard: React.FC<ItemCardProps> = ({
         </div>
       </div>
 
-      {/* Action Bar */}
+      {/* Action Bar with Ownership Enforcement */}
       <div className="item-card-footer">
         <button className="btn-card-action btn-view" onClick={() => onView(item)}>
           View
         </button>
 
-        {item.status !== "returned" ? (
-          <button
-            className="btn-card-action btn-return"
-            onClick={() => onQuickStatus(item.id, "returned")}
-            title="Mark as returned to owner"
-          >
-            ✓ Mark Returned
-          </button>
+        {canManage ? (
+          <>
+            {item.status !== "returned" ? (
+              <button
+                className="btn-card-action btn-return"
+                onClick={() => onQuickStatus(item.id, "returned")}
+                title="Mark as returned to owner"
+              >
+                ✓ Mark Returned
+              </button>
+            ) : (
+              <button
+                className="btn-card-action btn-reopen"
+                onClick={() => onQuickStatus(item.id, item.type === "lost" ? "missing" : "found")}
+                title="Re-open report"
+              >
+                ↺ Reopen
+              </button>
+            )}
+
+            <button className="btn-card-action btn-edit" onClick={() => onEdit(item)} title="Edit report">
+              Edit
+            </button>
+
+            <button
+              className="btn-card-action btn-delete"
+              onClick={() => onDelete(item.id, item.title)}
+              title="Delete report permanently"
+            >
+              🗑️
+            </button>
+          </>
         ) : (
-          <button
-            className="btn-card-action btn-reopen"
-            onClick={() => onQuickStatus(item.id, item.type === "lost" ? "missing" : "found")}
-            title="Re-open report"
+          <a
+            href={`mailto:${item.contact_email}?subject=UniFind:%20Regarding%20${encodeURIComponent(item.title)}`}
+            className="btn-card-action"
+            style={{
+              textDecoration: "none",
+              color: "#2563eb",
+              fontWeight: 600,
+              fontSize: "0.8rem",
+              background: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              padding: "0.35rem 0.65rem",
+              borderRadius: "6px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.25rem",
+            }}
+            onClick={(e) => e.stopPropagation()}
           >
-            ↺ Reopen
-          </button>
+            ✉️ Contact
+          </a>
         )}
-
-        <button className="btn-card-action btn-edit" onClick={() => onEdit(item)} title="Edit report">
-          Edit
-        </button>
-
-        <button
-          className="btn-card-action btn-delete"
-          onClick={() => onDelete(item.id, item.title)}
-          title="Delete report permanently"
-        >
-          🗑️
-        </button>
       </div>
     </div>
   );

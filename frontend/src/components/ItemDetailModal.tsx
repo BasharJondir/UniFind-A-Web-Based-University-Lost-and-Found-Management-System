@@ -1,5 +1,6 @@
 import React from "react";
 import { Item, ItemStatus } from "../types";
+import { useAuth } from "../AuthContext";
 
 interface ItemDetailModalProps {
   item: Item | null;
@@ -16,7 +17,18 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onDelete,
   onQuickStatus,
 }) => {
+  const { user } = useAuth();
   if (!item) return null;
+
+  // Check ownership
+  const isOwner = Boolean(
+    user &&
+      ((item.user_id && item.user_id === user.id) ||
+        (item.contact_email &&
+          user.email &&
+          item.contact_email.toLowerCase() === user.email.toLowerCase()))
+  );
+  const canManage = isOwner || user?.role === "admin";
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -30,6 +42,21 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               {item.status.toUpperCase()}
             </span>
             <span className="badge-category">{item.category}</span>
+            {isOwner && (
+              <span
+                style={{
+                  fontSize: "0.725rem",
+                  fontWeight: 700,
+                  padding: "3px 9px",
+                  borderRadius: "9999px",
+                  background: "#dcfce7",
+                  color: "#15803d",
+                  border: "1px solid #bbf7d0",
+                }}
+              >
+                ★ MY SUBMISSION
+              </span>
+            )}
           </div>
 
           <button className="modal-close-btn" onClick={onClose}>
@@ -84,47 +111,59 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
         <div className="modal-footer detail-modal-footer">
           <div className="detail-footer-actions">
-            {item.status !== "returned" ? (
-              <button
-                className="btn-success"
-                onClick={() => {
-                  onQuickStatus(item.id, "returned");
-                  onClose();
-                }}
-              >
-                ✓ Mark as Returned
-              </button>
+            {canManage ? (
+              <>
+                {item.status !== "returned" ? (
+                  <button
+                    className="btn-success"
+                    onClick={() => {
+                      onQuickStatus(item.id, "returned");
+                      onClose();
+                    }}
+                  >
+                    ✓ Mark as Returned
+                  </button>
+                ) : (
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      onQuickStatus(item.id, item.type === "lost" ? "missing" : "found");
+                      onClose();
+                    }}
+                  >
+                    ↺ Mark Unresolved
+                  </button>
+                )}
+
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    onClose();
+                    onEdit(item);
+                  }}
+                >
+                  ✏️ Edit Report
+                </button>
+
+                <button
+                  className="btn-danger"
+                  onClick={() => {
+                    onClose();
+                    onDelete(item.id, item.title);
+                  }}
+                >
+                  🗑️ Delete
+                </button>
+              </>
             ) : (
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  onQuickStatus(item.id, item.type === "lost" ? "missing" : "found");
-                  onClose();
-                }}
+              <a
+                href={`mailto:${item.contact_email}?subject=UniFind:%20Regarding%20${encodeURIComponent(item.title)}`}
+                className="btn-primary"
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
               >
-                ↺ Mark Unresolved
-              </button>
+                ✉️ Email Reporter
+              </a>
             )}
-
-            <button
-              className="btn-primary"
-              onClick={() => {
-                onClose();
-                onEdit(item);
-              }}
-            >
-              ✏️ Edit Report
-            </button>
-
-            <button
-              className="btn-danger"
-              onClick={() => {
-                onClose();
-                onDelete(item.id, item.title);
-              }}
-            >
-              🗑️ Delete
-            </button>
           </div>
 
           <button className="btn-secondary" onClick={onClose}>

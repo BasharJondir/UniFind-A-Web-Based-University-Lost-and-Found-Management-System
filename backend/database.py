@@ -92,10 +92,17 @@ def init_db():
                 password_hash TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'user',
                 is_banned INTEGER NOT NULL DEFAULT 0,
+                ban_reason TEXT,
                 created_at TEXT NOT NULL
             );
             """
         )
+
+        # Ensure ban_reason column exists on users table
+        cursor.execute("PRAGMA table_info(users)")
+        user_columns = [col[1] for col in cursor.fetchall()]
+        if "ban_reason" not in user_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN ban_reason TEXT")
 
         # 3. User Sessions / Refresh Tokens Table
         cursor.execute(
