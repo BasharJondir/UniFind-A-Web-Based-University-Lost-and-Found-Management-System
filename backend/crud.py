@@ -32,7 +32,7 @@ def create_user(
         "full_name": full_name.strip(),
         "password_hash": password_hash,
         "role": role,
-        "is_banned": 0,
+        "is_banned": False,
         "created_at": now,
     }
 
@@ -100,7 +100,7 @@ def get_all_users(
 
     if is_banned is not None:
         query += " AND is_banned = ?"
-        params.append(1 if is_banned else 0)
+        params.append(bool(is_banned))
 
     if search:
         query += " AND (LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?)"
@@ -117,7 +117,7 @@ def get_all_users(
         result = []
         for r in rows:
             d = dict(r)
-            d["is_banned"] = bool(d.get("is_banned", 0))
+            d["is_banned"] = bool(d.get("is_banned", False))
             result.append(d)
         return result
 
@@ -128,7 +128,7 @@ def update_user_ban(user_id: str, is_banned: bool, ban_reason: Optional[str] = N
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE users SET is_banned = ?, ban_reason = ? WHERE id = ?",
-            (1 if is_banned else 0, ban_reason if is_banned else None, user_id),
+            (bool(is_banned), ban_reason if is_banned else None, user_id),
         )
         conn.commit()
     return get_user_by_id(user_id)
@@ -159,7 +159,7 @@ def create_user_session(
         "user_id": user_id,
         "token_hash": token_hash,
         "expires_at": expires_at,
-        "is_revoked": 0,
+        "is_revoked": False,
         "created_at": now,
     }
 
@@ -186,7 +186,7 @@ def get_user_session(token_hash: str) -> Optional[Dict[str, Any]]:
         if not row:
             return None
         d = dict(row)
-        d["is_revoked"] = bool(d.get("is_revoked", 0))
+        d["is_revoked"] = bool(d.get("is_revoked", False))
         return d
 
 
@@ -195,7 +195,7 @@ def revoke_user_session(token_hash: str) -> bool:
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE user_sessions SET is_revoked = 1 WHERE token_hash = ?",
+            "UPDATE user_sessions SET is_revoked = TRUE WHERE token_hash = ?",
             (token_hash,),
         )
         conn.commit()
@@ -207,7 +207,7 @@ def revoke_all_user_sessions(user_id: str) -> bool:
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE user_sessions SET is_revoked = 1 WHERE user_id = ?",
+            "UPDATE user_sessions SET is_revoked = TRUE WHERE user_id = ?",
             (user_id,),
         )
         conn.commit()
@@ -411,7 +411,7 @@ def get_admin_stats() -> Dict[str, int]:
         cursor.execute("SELECT COUNT(*) FROM users WHERE LOWER(role) != 'admin'")
         student_users = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM users WHERE is_banned = 1")
+        cursor.execute("SELECT COUNT(*) FROM users WHERE is_banned = TRUE")
         banned_users = cursor.fetchone()[0]
 
         return {

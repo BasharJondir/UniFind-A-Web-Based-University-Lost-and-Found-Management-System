@@ -39,8 +39,122 @@ def get_db_path() -> Path:
     return Path(__file__).resolve().parent / "unifind.db"
 
 
-def get_connection() -> sqlite3.Connection:
-    """Provides a SQLite connection with Row factory."""
+class DictRow(dict):
+    """Row object that supports both dictionary key access ('col') and tuple index access (0)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._values = list(self.values())
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return super().__getitem__(key)
+
+
+class PostgresCursorWrapper:
+    """Wraps psycopg2 cursor to translate SQLite '?' and ':named' parameter placeholders to PostgreSQL '%s' and '%(name)s'."""
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def execute(self, query: str, params: Any = None):
+        import re
+        if params is not None:
+            if isinstance(params, dict):
+                query = re.sub(r':([a-zA-Z0-9_]+)', r'%(\1)s', query)
+            elif "?" in query:
+                query = query.replace("?", "%s")
+            return self._cursor.execute(query, params)
+        return self._cursor.execute(query)
+
+    def executemany(self, query: str, seq_of_params: Any):
+        import re
+        if seq_of_params and len(seq_of_params) > 0 and isinstance(seq_of_params[0], dict):
+            query = re.sub(r':([a-zA-Z0-9_]+)', r'%(\1)s', query)
+        elif "?" in query:
+            query = query.replace("?", "%s")
+        return self._cursor.executemany(query, seq_of_params)
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return DictRow(row) if row is not None else None
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        return [DictRow(r) for r in rows]
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def close(self):
+        self._cursor.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+class PostgresConnectionWrapper:
+    """Wraps psycopg2 connection to provide uniform context manager interface matching sqlite3."""
+    def __init__(self, conn):
+        self._conn = conn
+
+    def cursor(self):
+        return PostgresCursorWrapper(self._conn.cursor())
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self.rollback()
+        else:
+            self.commit()
+        self.close()
+
+
+def get_connection():
+    """
+    Dual-mode Database Connection:
+    1. If DATABASE_URL or SUPABASE_DATABASE_URL is set, connects to live Supabase PostgreSQL.
+    2. Otherwise, defaults to local SQLite (unifind.db) for offline development and isolated testing.
+    """
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DATABASE_URL")
+    if db_url and db_url.startswith("postgres"):
+        try:
+            import psycopg2
+            import psycopg2.extras
+
+            # Fix sqlalchemy or postgres:// URL scheme to postgresql://
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+            if "sslmode=" not in db_url:
+                separator = "&" if "?" in db_url else "?"
+                db_url = f"{db_url}{separator}sslmode=require"
+
+            raw_conn = psycopg2.connect(
+                db_url,
+                cursor_factory=psycopg2.extras.RealDictCursor,
+                connect_timeout=10,
+            )
+            return PostgresConnectionWrapper(raw_conn)
+        except Exception as e:
+            # Fallback to local SQLite if remote PostgreSQL is unreachable
+            pass
+
+    # Default to SQLite
     db_path = get_db_path()
     try:
         conn = sqlite3.connect(db_path)
@@ -283,25 +397,4 @@ def seed_demo_data(cursor: sqlite3.Cursor):
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         sample_items,
-    )
-
-
-# Forward CRUD functions from crud.py for backward compatibility
-try:
-    from backend.crud import (
-        get_all as db_get_all,
-        get_by_id as db_get_by_id,
-        create as db_create,
-        update as db_update,
-        delete as db_delete,
-        get_stats as db_get_stats,
-    )
-except ImportError:
-    from crud import (
-        get_all as db_get_all,
-        get_by_id as db_get_by_id,
-        create as db_create,
-        update as db_update,
-        delete as db_delete,
-        get_stats as db_get_stats,
     )
