@@ -1,27 +1,32 @@
 # UniFind — A Web-Based University Lost and Found Management System
-### CSE 309 Mid Project Assessment — Minimum Viable Product (MVP)
+### CSE 309 Final Project — Full-Stack University System Upgrade (Parts 1–7)
 
 UniFind is a centralized web platform designed for university campuses to streamline reporting, searching, managing, and reuniting lost and found belongings.
 
 ---
 
-## 📋 Assessment Overview & Mark Distribution (30 Marks Total)
+## 🌟 Upgraded Production Features (Parts 1 – 7)
 
-| Component | Marks | Description | Status |
-|---|:---:|---|:---:|
-| **Frontend Implementation** | 10 | React 19 + TypeScript, modern functional components, full 5-operation CRUD | ✅ Complete |
-| **Backend Implementation** | 10 | Python + FastAPI, REST endpoints for all 5 CRUD operations, SQLite persistence | ✅ Complete |
-| **GitHub Presentation & Viva** | 10 | Issue & branch workflow, DevTools network demonstration, Postman verification | ✅ Ready |
+| Part | Milestone | Description | Status |
+|---|---|---|:---:|
+| **Part 1** | **Authentication Backend** | 12-round bcrypt password hashing, 15-min JWT (`HS256`), 7-day SHA-256 refresh tokens & `HttpOnly` cookies | ✅ Complete |
+| **Part 2** | **Frontend Auth UI & Gate** | Login/Register portal (`AuthPage.tsx`), global `AuthContext`, session restore & profile pill | ✅ Complete |
+| **Part 3** | **Item Ownership Security** | Author auto-binding, `403 Forbidden` protection on edits/deletions, admin overrides | ✅ Complete |
+| **Part 4** | **RBAC & Campus Safety Guards** | `require_admin()` dependency, University Proctor Main Admin immunity, peer-ban locks & session revocation | ✅ Complete |
+| **Part 5** | **Modular Architecture** | Decoupled APIRouter modules (`backend/routers/`), OpenAPI docs at `/docs` & `/api/docs` | ✅ Complete |
+| **Part 6** | **Admin Dashboard UI** | Real-time analytics cards (`/api/admin/stats`), user governance table & audit ban modal | ✅ Complete |
+| **Part 7** | **Pytest Suite & Supabase Cloud** | Dual-mode database engine (`psycopg2` + `sqlite3`), Supabase PostgreSQL, 16 automated tests | ✅ Complete |
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend:** React 19, TypeScript, Vite, CSS Design System
-- **Backend:** Python 3.10+, FastAPI, Pydantic v2, Uvicorn
-- **Database:** SQLite (built-in, autonomous, zero external dependencies, pre-seeded demo records)
-- **Deployment:** Vercel configured (`vercel.json` rewrites `/api/*` to FastAPI backend and static routes to Vite frontend)
-- **API Testing:** Postman (`UniFind_API_Postman_Collection.json` included in repository)
+- **Frontend:** React, TypeScript, Vite, CSS Design System
+- **Backend:** Python 3.10+, FastAPI, Pydantic v2, Uvicorn, Pytest
+- **Database:** Supabase Cloud PostgreSQL (Production Tokyo Pooler) + SQLite (Offline Development & Automated Testing)
+- **Deployment:** Vercel Full-Stack Serverless (`https://2230470.vercel.app`)
+- **Authentication:** JWT (HMAC-SHA256), HttpOnly Cookies, SHA-256 Sessions, Bcrypt Hashing
+- **API Testing:** Automated Pytest suite (16 tests) + Postman Collection (`UniFind_API_Postman_Collection.json`)
 
 ---
 
